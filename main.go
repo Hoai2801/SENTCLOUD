@@ -8,45 +8,13 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"runtime/pprof"
-	"syscall"
 	"time"
 )
 
 func main() {
 	// Create tmp dir if not exists
 	os.MkdirAll("./tmp", 0755)
-
-	// Start pprof server
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-
-	// Create CPU profile file
-	f, err := os.Create("./tmp/cpu_profile.prof")
-	if err != nil {
-		log.Fatal("could not create CPU profile: ", err)
-	}
-	defer f.Close()
-
-	// Start CPU profiling
-	if err := pprof.StartCPUProfile(f); err != nil {
-		log.Fatal("could not start CPU profile: ", err)
-	}
-	defer pprof.StopCPUProfile()
-
-	// Handle graceful shutdown
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
-
-		log.Println("Shutting down, stopping CPU profile...")
-		pprof.StopCPUProfile()
-		os.Exit(0)
-	}()
 
 	// Gin router setup
 	router := gin.Default()
@@ -113,8 +81,6 @@ func main() {
 
 		extension := filepath.Ext(file.Filename)
 		newFileName := uuid.New().String() + extension
-
-		time.Sleep(10 * time.Second)
 
 		if err := c.SaveUploadedFile(file, "./tmp/"+newFileName); err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
